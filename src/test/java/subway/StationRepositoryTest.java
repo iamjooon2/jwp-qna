@@ -19,9 +19,11 @@ import org.springframework.test.context.TestConstructor.AutowireMode;
 class StationRepositoryTest {
 
     private final StationRepository stationRepository;
+    private final LineRepository lineRepository;
 
-    StationRepositoryTest(final StationRepository stationRepository) {
+    StationRepositoryTest(final StationRepository stationRepository, final LineRepository lineRepository) {
         this.stationRepository = stationRepository;
+        this.lineRepository = lineRepository;
     }
 
     @Test
@@ -96,5 +98,69 @@ class StationRepositoryTest {
         assertThat(after).isNotNull();
     }
 
-    // 스냅샷 - 처음에 클론한 상태에서 하드카피된 값을 들고 있게 된다
+    @Test
+    void Line과_함께_저장한다() {
+        // given
+        final Station station = new Station("선릉역");
+        final Line line = lineRepository.save(new Line("2호선"));
+        station.setLine(line);
+        // line에 대한 정보를 미리 영속화 시켜야 함
+
+        // when
+        stationRepository.save(station);
+
+        // then
+        stationRepository.flush();
+    }
+
+    @Test
+    void test_findByNameWithLine() {
+        // given
+        final Station station = stationRepository.findByName("교대역");
+
+        // expect
+        assertThat(station).isNotNull();
+        assertThat(station.getLine()).isNotNull();
+    }
+
+    @Test
+    void test_updateWithLine() {
+        // given
+        final Station station = stationRepository.findByName("교대역");
+
+        // when
+        station.setLine(lineRepository.save(new Line("3호선")));
+        // 항상 영속화 된 놈을 넣어줘야 함
+
+        // then
+        stationRepository.flush();
+    }
+
+    @Test
+    void test_removeLineInStation() {
+        // given
+        final Station station = stationRepository.findByName("교대역");
+
+        // when
+        station.setLine(null);
+        // 객체 중심으로 사고를 하세용..
+
+        // then
+        stationRepository.flush();
+    }
+
+    @Test
+    void test_removeLine() {
+        // given
+        final Line line = lineRepository.findByName("3호선");
+
+        // when
+        lineRepository.delete(line);
+
+        // then
+        lineRepository.flush(); // -> 에러, 해당 라인을 사용하고 있는 station이 있음
+        // 연관관계를 지워야 삭제할 수 있음
+    }
+
+
 }
